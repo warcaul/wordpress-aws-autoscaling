@@ -1,8 +1,8 @@
 """
 Gives the private subnets outbound internet access through a NAT gateway.
 
-  py nat_gateway.py create   - Elastic IP + NAT gateway + private route table
-  py nat_gateway.py delete   - removes the NAT gateway and releases its Elastic IP
+  py -m network.nat_gateway create   - Elastic IP + NAT gateway + private route table
+  py -m network.nat_gateway delete   - removes the NAT gateway and releases its Elastic IP
 
 The NAT gateway costs money while it exists, so delete it when the private
 instances don't need to download anything.

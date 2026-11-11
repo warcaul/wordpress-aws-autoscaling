@@ -34,7 +34,7 @@ def find_vpc():
     """The project VPC; stops the script if vpc.py hasn't been run yet."""
     vpcs = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [full_name("vpc")]}]))
     if not vpcs:
-        sys.exit(f"{full_name('vpc')} not found - run vpc.py first")
+        sys.exit(f"{full_name('vpc')} not found - run: py -m network.vpc")
     return vpcs[0]
 
 
@@ -49,7 +49,7 @@ def find_security_group(vpc, name):
     groups = list(vpc.security_groups.filter(
         Filters=[{"Name": "group-name", "Values": [full_name(name)]}]))
     if not groups:
-        sys.exit(f"{full_name(name)} not found - run security_groups.py first")
+        sys.exit(f"{full_name(name)} not found - run: py -m network.security_groups")
     return groups[0]
 
 
