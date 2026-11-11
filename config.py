@@ -48,3 +48,9 @@ DB_USER = "wpuser"
 # IAM role provided by the Learner Lab; lets instances call AWS (e.g. CloudWatch)
 # without storing credentials on them
 INSTANCE_PROFILE = "LabInstanceProfile"
+
+# Auto scaling group size: always at least 2 web servers (in different
+# availability zones), at most 4 under load
+ASG_MIN_SIZE = 2
+ASG_DESIRED_CAPACITY = 2
+ASG_MAX_SIZE = 4
