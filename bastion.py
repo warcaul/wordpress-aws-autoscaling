@@ -5,32 +5,11 @@ only way in for SSH. The web servers and the database accept SSH only from it.
 
 import sys
 
-import boto3
-
 import config
+from aws_helpers import (ec2, find_security_group, find_subnets, find_vpc, full_name,
+                         latest_amazon_linux_ami, tag_spec)
 
-ec2 = boto3.resource("ec2", region_name=config.REGION)
-client = boto3.client("ec2", region_name=config.REGION)
-
-BASTION_NAME = f"{config.PROJECT}-bastion"
-
-
-def find_vpc():
-    vpc_name = f"{config.PROJECT}-vpc"
-    vpcs = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [vpc_name]}]))
-    if not vpcs:
-        sys.exit(f"{vpc_name} not found - run vpc.py first")
-    return vpcs[0]
-
-
-def latest_amazon_linux_ami():
-    """Newest official Amazon Linux 2023 image for x86 (t2 instances are x86)."""
-    images = client.describe_images(
-        Owners=["amazon"],
-        Filters=[{"Name": "name", "Values": ["al2023-ami-2023.*-x86_64"]},
-                 {"Name": "state", "Values": ["available"]}],
-    )["Images"]
-    return max(images, key=lambda image: image["CreationDate"])["ImageId"]
+BASTION_NAME = full_name("bastion")
 
 
 def main():
@@ -44,10 +23,8 @@ def main():
     if existing:
         sys.exit(f"{BASTION_NAME} already exists ({existing[0].id}, {existing[0].state['Name']})")
 
-    subnet = list(vpc.subnets.filter(Filters=[
-        {"Name": "tag:Name", "Values": [f"{config.PROJECT}-public1-*"]}]))[0]
-    security_group = list(vpc.security_groups.filter(Filters=[
-        {"Name": "group-name", "Values": [f"{config.PROJECT}-bastion-sg"]}]))[0]
+    subnet = find_subnets(vpc, "public1-*")[0]
+    security_group = find_security_group(vpc, "bastion-sg")
 
     instance = ec2.create_instances(
         ImageId=latest_amazon_linux_ami(),
@@ -57,8 +34,7 @@ def main():
         SecurityGroupIds=[security_group.id],
         MinCount=1,
         MaxCount=1,
-        TagSpecifications=[{"ResourceType": "instance",
-                            "Tags": [{"Key": "Name", "Value": BASTION_NAME}]}],
+        TagSpecifications=tag_spec("instance", "bastion"),
     )[0]
     print(f"Launched {BASTION_NAME} ({instance.id}), waiting for it to run...")
 

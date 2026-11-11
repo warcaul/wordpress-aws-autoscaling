@@ -10,11 +10,7 @@ Creates the security groups for the application (assignment step 3):
 import sys
 import urllib.request
 
-import boto3
-
-import config
-
-ec2 = boto3.resource("ec2", region_name=config.REGION)
+from aws_helpers import find_vpc, full_name
 
 
 def my_public_ip():
@@ -23,19 +19,11 @@ def my_public_ip():
         return response.read().decode().strip()
 
 
-def find_vpc():
-    vpc_name = f"{config.PROJECT}-vpc"
-    vpcs = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [vpc_name]}]))
-    if not vpcs:
-        sys.exit(f"{vpc_name} not found - run vpc.py first")
-    return vpcs[0]
-
-
 def create_group(vpc, name, description):
-    full_name = f"{config.PROJECT}-{name}"
-    sg = vpc.create_security_group(GroupName=full_name, Description=description)
-    sg.create_tags(Tags=[{"Key": "Name", "Value": full_name}])
-    print(f"Created {full_name} ({sg.id})")
+    group_name = full_name(name)
+    sg = vpc.create_security_group(GroupName=group_name, Description=description)
+    sg.create_tags(Tags=[{"Key": "Name", "Value": group_name}])
+    print(f"Created {group_name} ({sg.id})")
     return sg
 
 
@@ -56,7 +44,7 @@ def main():
 
     # Don't create duplicates if this script has already been run
     existing = list(vpc.security_groups.filter(
-        Filters=[{"Name": "group-name", "Values": [f"{config.PROJECT}-*"]}]))
+        Filters=[{"Name": "group-name", "Values": [full_name("*")]}]))
     if existing:
         sys.exit("Security groups already exist: "
                  + ", ".join(sg.group_name for sg in existing))

@@ -12,20 +12,7 @@ import argparse
 import sys
 import time
 
-import boto3
-
-import config
-
-ec2 = boto3.resource("ec2", region_name=config.REGION)
-client = boto3.client("ec2", region_name=config.REGION)
-
-
-def find_vpc():
-    vpc_name = f"{config.PROJECT}-vpc"
-    vpcs = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [vpc_name]}]))
-    if not vpcs:
-        sys.exit(f"{vpc_name} not found - run vpc.py first")
-    return vpcs[0]
+from aws_helpers import client, find_subnets, find_vpc, full_name, name_tag, tag_spec
 
 
 def active_nat_gateways(vpc):
@@ -35,21 +22,12 @@ def active_nat_gateways(vpc):
     ])["NatGateways"]
 
 
-def subnets_named(vpc, pattern):
-    return list(vpc.subnets.filter(Filters=[{"Name": "tag:Name", "Values": [pattern]}]))
-
-
-def tag_spec(resource_type, name):
-    return [{"ResourceType": resource_type,
-             "Tags": [{"Key": "Name", "Value": f"{config.PROJECT}-{name}"}]}]
-
-
 def create(vpc):
     if active_nat_gateways(vpc):
         sys.exit("A NAT gateway already exists in this VPC")
 
     # The NAT gateway itself needs internet access, so it goes in a public subnet
-    public_subnet = subnets_named(vpc, f"{config.PROJECT}-public1-*")[0]
+    public_subnet = find_subnets(vpc, "public1-*")[0]
 
     # A fixed public address for the NAT gateway
     allocation_id = client.allocate_address(
@@ -64,14 +42,14 @@ def create(vpc):
     print("NAT gateway available")
 
     # Private route table: reuse it if an earlier run created it
-    rt_name = f"{config.PROJECT}-rtb-private"
+    rt_name = full_name("rtb-private")
     tables = list(vpc.route_tables.filter(Filters=[{"Name": "tag:Name", "Values": [rt_name]}]))
     if tables:
         private_rt = tables[0]
     else:
         private_rt = vpc.create_route_table()
-        private_rt.create_tags(Tags=[{"Key": "Name", "Value": rt_name}])
-        for subnet in subnets_named(vpc, f"{config.PROJECT}-private*"):
+        name_tag(private_rt, "rtb-private")
+        for subnet in find_subnets(vpc, "private*"):
             private_rt.associate_with_subnet(SubnetId=subnet.id)
         print(f"Created {rt_name} and associated the private subnets")
 

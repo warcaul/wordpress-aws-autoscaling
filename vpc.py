@@ -7,20 +7,12 @@ Creates the VPC for the application (assignment step 3):
 
 import sys
 
-import boto3
-
 import config
-
-ec2 = boto3.resource("ec2", region_name=config.REGION)
-
-
-def name_tag(resource, name):
-    """Give a resource a Name tag, so it's recognisable in the console."""
-    resource.create_tags(Tags=[{"Key": "Name", "Value": f"{config.PROJECT}-{name}"}])
+from aws_helpers import ec2, full_name, name_tag
 
 
 def main():
-    vpc_name = f"{config.PROJECT}-vpc"
+    vpc_name = full_name("vpc")
 
     # Don't create a second VPC if this script has already been run
     existing = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [vpc_name]}]))
