@@ -1,7 +1,8 @@
 """
 Deletes everything this project created, in an order AWS accepts:
-AMIs and launch template -> load balancer and target group -> instances ->
-NAT gateway -> security groups -> subnets, route tables, internet gateway -> VPC.
+auto scaling group -> AMIs -> launch template -> load balancer and target
+group -> instances -> NAT gateway -> security groups -> subnets, route tables,
+internet gateway -> VPC.
 
   py teardown.py
 
@@ -14,7 +15,7 @@ import time
 
 from botocore.exceptions import ClientError
 
-from aws_helpers import client, ec2, elb, full_name
+from aws_helpers import autoscaling, client, ec2, elb, full_name
 from network.nat_gateway import active_nat_gateways
 from network.nat_gateway import delete as delete_nat_gateway
 
@@ -23,6 +24,11 @@ def find_vpc_or_none():
     vpcs = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [full_name("vpc")]}]))
     return vpcs[0] if vpcs else None
 
+
+def find_auto_scaling_group():
+    groups = autoscaling.describe_auto_scaling_groups(
+        AutoScalingGroupNames=[full_name("asg")])["AutoScalingGroups"]
+    return groups[0] if groups else None
 
 def project_amis():
     """Our AMIs (named a2-wordpress-...). They live outside the VPC."""
@@ -91,13 +97,17 @@ def delete_with_retry(action, description, attempts=10, delay=10):
 
 def main():
     vpc = find_vpc_or_none()
+    auto_scaling_group = find_auto_scaling_group()
     amis = project_amis()
     launch_template = find_launch_template()
-    if not vpc and not amis and not launch_template:
+    if not vpc and not auto_scaling_group and not amis and not launch_template:
         sys.exit("Nothing to delete")
 
     # --- Find everything first, so you can review it before anything is deleted ---
     print("This will delete:")
+    if auto_scaling_group:
+        print(f"  auto scaling group {full_name('asg')} "
+              f"with {len(auto_scaling_group['Instances'])} instance(s)")
     print(f"  {len(amis)} AMI(s) and their snapshots: "
           + ", ".join(image["Name"] for image in amis))
     
@@ -108,9 +118,12 @@ def main():
     if vpc:
         load_balancer = find_load_balancer()
         target_group = find_target_group()
-        instances = list(vpc.instances.filter(Filters=[{
+# Instances launched by auto scaling are removed with their group,
+# # so only the ones launched by our scripts are listed here
+        instances = [i for i in vpc.instances.filter(Filters=[{
             "Name": "instance-state-name",
-            "Values": ["pending", "running", "stopping", "stopped"]}]))
+            "Values": ["pending", "running", "stopping", "stopped"]}])
+            if not any(t["Key"] == "aws:autoscaling:groupName" for t in i.tags or [])]
         nat_gateways = active_nat_gateways(vpc)
         security_groups = [sg for sg in vpc.security_groups.all() if sg.group_name != "default"]
         subnets = list(vpc.subnets.all())
@@ -133,7 +146,20 @@ def main():
     if input("Type 'yes' to continue: ").strip().lower() != "yes":
         sys.exit("Cancelled - nothing deleted")
 
-    # --- 0. AMIs: deregister first, then the snapshot can be deleted ---
+    # --- 1. Auto scaling group first: otherwise it keeps replacing the
+    #        instances we delete. ForceDelete terminates its instances too ---
+    if auto_scaling_group:
+        if auto_scaling_group.get("Status") != "Delete in progress":
+            autoscaling.delete_auto_scaling_group(
+                AutoScalingGroupName=full_name("asg"), ForceDelete=True)
+        print(f"Deleting {full_name('asg')} and its instances (a few minutes)...")
+        while (auto_scaling_group := find_auto_scaling_group()):
+            states = [i["LifecycleState"] for i in auto_scaling_group["Instances"]]
+            print(f"  still deleting - instances: {', '.join(states) or 'none left'}")
+            time.sleep(15)
+        print(f"  deleted {full_name('asg')}")
+
+    # --- 2. AMIs: deregister first, then the snapshot can be deleted ---
     for image in amis:
         client.deregister_image(ImageId=image["ImageId"])
         print(f"Deregistered AMI {image['Name']} ({image['ImageId']})")
@@ -141,7 +167,7 @@ def main():
             delete_with_retry(lambda: client.delete_snapshot(SnapshotId=snapshot_id),
                               f"snapshot {snapshot_id}")
 
-    # --- 0. Launch template: deleting it removes all its versions ---
+    # --- 3. Launch template: deleting it removes all its versions ---
     if launch_template:
         client.delete_launch_template(LaunchTemplateName=full_name("lt"))
         print(f"Deleted launch template {full_name('lt')}")
@@ -150,7 +176,7 @@ def main():
         print("Teardown complete. Key pair kept.")
         return
 
-    # --- 1. Load balancer, then its target group (in use while the LB exists) ---
+    # --- 4. Load balancer, then its target group (in use while the LB exists) ---
     if load_balancer:
         print("Deleting load balancer...")
         elb.delete_load_balancer(LoadBalancerArn=load_balancer["LoadBalancerArn"])
@@ -162,7 +188,7 @@ def main():
             lambda: elb.delete_target_group(TargetGroupArn=target_group["TargetGroupArn"]),
             full_name("tg"))
 
-    # --- 2. Instances: everything else is in use while they exist ---
+    # --- 5. Instances: everything else is in use while they exist ---
     if instances:
         print("Terminating instances...")
         for instance in instances:
@@ -170,7 +196,7 @@ def main():
         client.get_waiter("instance_terminated").wait(InstanceIds=[i.id for i in instances])
         print("  all instances terminated")
 
-    # --- 3. NAT gateway and its Elastic IP (same logic as network.nat_gateway) ---
+    # --- 6. NAT gateway and its Elastic IP (same logic as network.nat_gateway) ---
     if nat_gateways:
         print("Deleting NAT gateway...")
         delete_nat_gateway(vpc)
@@ -178,7 +204,7 @@ def main():
         client.release_address(AllocationId=address["AllocationId"])
         print(f"  released leftover Elastic IP {address['AllocationId']}")
 
-    # --- 4. Security groups: remove rules first, because the groups refer
+    # --- 7. Security groups: remove rules first, because the groups refer
     #        to each other and a referenced group can't be deleted ---
     if security_groups:
         print("Deleting security groups...")
@@ -188,7 +214,7 @@ def main():
         for sg in security_groups:
             delete_with_retry(sg.delete, sg.group_name)
 
-    # --- 5. Subnets, route tables, internet gateway, then the VPC itself ---
+    # --- 8. Subnets, route tables, internet gateway, then the VPC itself ---
     print("Deleting network...")
     for subnet in subnets:
         delete_with_retry(subnet.delete, f"subnet {subnet.id}")
