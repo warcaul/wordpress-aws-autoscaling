@@ -1,0 +1,2 @@
+# Shell scripts run on Linux instances: always keep Linux line endings
+*.sh text eol=lf
