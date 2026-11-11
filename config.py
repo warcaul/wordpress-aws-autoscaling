@@ -39,3 +39,8 @@ def db_password():
     if not password or password == "CHANGE_ME":
         sys.exit("Set A2_DB_PASSWORD in .env (copy .env.example to .env)")
     return password
+
+
+# WordPress database: its name and the MariaDB user WordPress connects as
+DB_NAME = "wordpress"
+DB_USER = "wpuser"
