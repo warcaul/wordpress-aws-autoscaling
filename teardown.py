@@ -1,7 +1,7 @@
 """
 Deletes everything this project created, in an order AWS accepts:
-AMIs -> load balancer and target group -> instances -> NAT gateway ->
-security groups -> subnets, route tables, internet gateway -> VPC.
+AMIs and launch template -> load balancer and target group -> instances ->
+NAT gateway -> security groups -> subnets, route tables, internet gateway -> VPC.
 
   py teardown.py
 
@@ -35,6 +35,18 @@ def snapshot_ids(image):
     return [mapping["Ebs"]["SnapshotId"]
             for mapping in image.get("BlockDeviceMappings", [])
             if "SnapshotId" in mapping.get("Ebs", {})]
+
+
+def find_launch_template():
+    """The launch template (with all its versions), or None. Like AMIs, it
+    lives outside the VPC."""
+    try:
+        return client.describe_launch_templates(
+            LaunchTemplateNames=[full_name("lt")])["LaunchTemplates"][0]
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "InvalidLaunchTemplateName.NotFoundException":
+            return None
+        raise
 
 
 def find_load_balancer():
@@ -80,13 +92,18 @@ def delete_with_retry(action, description, attempts=10, delay=10):
 def main():
     vpc = find_vpc_or_none()
     amis = project_amis()
-    if not vpc and not amis:
+    launch_template = find_launch_template()
+    if not vpc and not amis and not launch_template:
         sys.exit("Nothing to delete")
 
     # --- Find everything first, so you can review it before anything is deleted ---
     print("This will delete:")
     print(f"  {len(amis)} AMI(s) and their snapshots: "
           + ", ".join(image["Name"] for image in amis))
+    
+    if launch_template:
+        print(f"  launch template {full_name('lt')} "
+        f"({launch_template['LatestVersionNumber']} version(s))")
 
     if vpc:
         load_balancer = find_load_balancer()
@@ -123,6 +140,11 @@ def main():
         for snapshot_id in snapshot_ids(image):
             delete_with_retry(lambda: client.delete_snapshot(SnapshotId=snapshot_id),
                               f"snapshot {snapshot_id}")
+
+    # --- 0. Launch template: deleting it removes all its versions ---
+    if launch_template:
+        client.delete_launch_template(LaunchTemplateName=full_name("lt"))
+        print(f"Deleted launch template {full_name('lt')}")
 
     if not vpc:
         print("Teardown complete. Key pair kept.")
