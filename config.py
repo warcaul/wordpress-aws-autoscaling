@@ -19,3 +19,6 @@ PRIVATE_SUBNET_CIDRS = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
 # Key pair for SSH access: its name in AWS, and the private key file on this PC
 KEY_NAME = f"{PROJECT}-key"
 KEY_FILE = os.path.expanduser(f"~/.ssh/{KEY_NAME}.pem")
+
+# Instance type for all servers (512 MB RAM, cheapest general-purpose type)
+INSTANCE_TYPE = "t2.nano"
