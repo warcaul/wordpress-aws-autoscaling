@@ -16,6 +16,7 @@ ec2 = boto3.resource("ec2", region_name=config.REGION)
 client = boto3.client("ec2", region_name=config.REGION)
 elb = boto3.client("elbv2", region_name=config.REGION)
 autoscaling = boto3.client("autoscaling", region_name=config.REGION)
+cloudwatch = boto3.client("cloudwatch", region_name=config.REGION)
 
 
 def full_name(name):

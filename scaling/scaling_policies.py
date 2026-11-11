@@ -12,12 +12,8 @@ Safe to run again: policies and alarms with the same names are updated in place.
 
 import sys
 
-import boto3
-
 import config
-from aws_helpers import autoscaling, full_name
-
-cloudwatch = boto3.client("cloudwatch", region_name=config.REGION)
+from aws_helpers import autoscaling, full_name, cloudwatch
 
 ASG_NAME = full_name("asg")
 
