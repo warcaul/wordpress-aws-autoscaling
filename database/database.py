@@ -10,8 +10,8 @@ import os
 import sys
 
 import config
-from aws_helpers import (client, ec2, find_security_group, find_subnets, find_vpc,
-                         full_name, latest_amazon_linux_ami, tag_spec)
+from aws_helpers import (check_user_data, client, ec2, find_security_group, find_subnets,
+                         find_vpc, full_name, latest_amazon_linux_ami, tag_spec)
 
 DB_INSTANCE_NAME = full_name("db")
 USERDATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "userdata.sh")
@@ -43,7 +43,7 @@ def build_user_data():
     }
     for placeholder, value in values.items():
         script = script.replace(placeholder, value)
-    return script
+    return check_user_data(script, USERDATA_FILE)
 
 
 def bastion_ip(vpc):

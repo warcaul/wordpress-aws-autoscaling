@@ -3,6 +3,7 @@ Shared helpers used by the deployment scripts, so common lookups are
 written once.
 """
 
+import re
 import sys
 
 import boto3
@@ -61,3 +62,17 @@ def latest_amazon_linux_ami():
                  {"Name": "state", "Values": ["available"]}],
     )["Images"]
     return max(images, key=lambda image: image["CreationDate"])["ImageId"]
+
+
+def check_user_data(script, source):
+    """Stop before launching if the User Data can't work: an empty file, a
+    missing #!/bin/bash line (cloud-init would silently skip the script), or a
+    placeholder that wasn't filled in (e.g. a typo in its name).
+    Placeholders look like __DB_HOST__; PHP's own __DIR__ has no inner
+    underscore, so it isn't mistaken for one."""
+    if not script.startswith("#!/bin/bash"):
+        sys.exit(f"{source} is empty or doesn't start with #!/bin/bash")
+    unfilled = sorted(set(re.findall(r"__[A-Z]+_[A-Z_]+__", script)))
+    if unfilled:
+        sys.exit(f"{source} has unfilled placeholders: {', '.join(unfilled)}")
+    return script

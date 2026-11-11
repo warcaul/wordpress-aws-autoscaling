@@ -11,7 +11,7 @@ import os
 import sys
 
 import config
-from aws_helpers import (ec2, find_security_group, find_subnets, find_vpc,
+from aws_helpers import (check_user_data, ec2, find_security_group, find_subnets, find_vpc,
                          full_name, latest_amazon_linux_ami, tag_spec)
 
 MASTER_NAME = full_name("master-web")
@@ -37,6 +37,8 @@ def build_user_data(db_host):
         script = f.read()
     with open(INSTANCE_INFO_FILE) as f:
         instance_info_page = f.read().rstrip("\n")
+    if not instance_info_page.startswith("<?php"):
+        sys.exit(f"{INSTANCE_INFO_FILE} is empty or doesn't start with <?php")
 
     values = {
         "__DB_HOST__": db_host,
@@ -47,7 +49,7 @@ def build_user_data(db_host):
     }
     for placeholder, value in values.items():
         script = script.replace(placeholder, value)
-    return script
+    return check_user_data(script, USERDATA_FILE)
 
 
 def main():
