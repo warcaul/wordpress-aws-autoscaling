@@ -10,9 +10,11 @@ import boto3
 
 import config
 
-# One EC2 resource and client for all scripts
+# One EC2 resource and client for all scripts, plus the load balancer
+# client (elbv2 = Elastic Load Balancing version 2: application load balancers)
 ec2 = boto3.resource("ec2", region_name=config.REGION)
 client = boto3.client("ec2", region_name=config.REGION)
+elb = boto3.client("elbv2", region_name=config.REGION)
 
 
 def full_name(name):
