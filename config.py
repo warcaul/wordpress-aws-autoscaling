@@ -44,3 +44,7 @@ def db_password():
 # WordPress database: its name and the MariaDB user WordPress connects as
 DB_NAME = "wordpress"
 DB_USER = "wpuser"
+
+# IAM role provided by the Learner Lab; lets instances call AWS (e.g. CloudWatch)
+# without storing credentials on them
+INSTANCE_PROFILE = "LabInstanceProfile"
