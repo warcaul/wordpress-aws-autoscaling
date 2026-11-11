@@ -65,6 +65,39 @@ cat > /var/www/html/instance-info.php <<'PHP'
 __INSTANCE_INFO_PHP__
 PHP
 
+# --- Custom CloudWatch metrics (content inserted by web_master.py from metrics.sh) ---
+cat > /usr/local/bin/a2-metrics.sh <<'METRICS'
+__METRICS_SH__
+METRICS
+chmod 755 /usr/local/bin/a2-metrics.sh
+
+# A systemd service that runs the script once...
+cat > /etc/systemd/system/a2-metrics.service <<EOF
+[Unit]
+Description=Push custom memory and swap metrics to CloudWatch
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/a2-metrics.sh
+EOF
+
+# ...and a timer that starts it every minute, beginning 1 minute after boot
+cat > /etc/systemd/system/a2-metrics.timer <<EOF
+[Unit]
+Description=Run a2-metrics every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now a2-metrics.timer
+
+
 # --- Apache serves the files, so it must own them ---
 chown -R apache:apache /var/www/html
 

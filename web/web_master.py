@@ -18,6 +18,7 @@ MASTER_NAME = full_name("master-web")
 HERE = os.path.dirname(os.path.abspath(__file__))
 USERDATA_FILE = os.path.join(HERE, "userdata.sh")
 INSTANCE_INFO_FILE = os.path.join(HERE, "instance-info.php")
+METRICS_FILE = os.path.join(HERE, "metrics.sh")
 
 
 def database_private_ip(vpc):
@@ -32,13 +33,17 @@ def database_private_ip(vpc):
 
 
 def build_user_data(db_host):
-    """Read userdata.sh, fill in the placeholders and insert the PHP page."""
+    """Read userdata.sh, fill in the placeholders, and insert the PHP page and the metrics script."""
     with open(USERDATA_FILE) as f:          # text mode: \r\n becomes \n
         script = f.read()
     with open(INSTANCE_INFO_FILE) as f:
         instance_info_page = f.read().rstrip("\n")
     if not instance_info_page.startswith("<?php"):
         sys.exit(f"{INSTANCE_INFO_FILE} is empty or doesn't start with <?php")
+    with open(METRICS_FILE) as f:
+        metrics_script = f.read().rstrip("\n")
+    if not metrics_script.startswith("#!/bin/bash"):
+        sys.exit(f"{METRICS_FILE} is empty or doesn't start with #!/bin/bash")
 
     values = {
         "__DB_HOST__": db_host,
@@ -46,6 +51,7 @@ def build_user_data(db_host):
         "__DB_USER__": config.DB_USER,
         "__DB_PASSWORD__": config.db_password(),
         "__INSTANCE_INFO_PHP__": instance_info_page,
+        "__METRICS_SH__": metrics_script,
     }
     for placeholder, value in values.items():
         script = script.replace(placeholder, value)
