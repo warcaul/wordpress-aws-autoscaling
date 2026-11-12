@@ -7,7 +7,6 @@ Creates the application load balancer (assignment step 4):
   py -m scaling.load_balancer
 """
 
-import sys
 
 from botocore.exceptions import ClientError
 
@@ -35,7 +34,8 @@ def load_balancer_exists():
 def main():
     vpc = find_vpc()
     if load_balancer_exists():
-        sys.exit(f"{LB_NAME} already exists")
+        print(f"{LB_NAME} already exists - skipping")
+        return
 
     name_tag = [{"Key": "Name", "Value": LB_NAME}]
 

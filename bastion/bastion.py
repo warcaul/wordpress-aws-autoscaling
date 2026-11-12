@@ -3,7 +3,6 @@ Launches the bastion host: a minimal instance in a public subnet that is the
 only way in for SSH. The web servers and the database accept SSH only from it.
 """
 
-import sys
 
 import config
 from aws_helpers import (ec2, find_security_group, find_subnets, find_vpc, full_name,
@@ -21,7 +20,9 @@ def main():
         {"Name": "instance-state-name", "Values": ["pending", "running", "stopping", "stopped"]},
     ]))
     if existing:
-        sys.exit(f"{BASTION_NAME} already exists ({existing[0].id}, {existing[0].state['Name']})")
+        print(f"{BASTION_NAME} already exists ({existing[0].id}, "
+              f"{existing[0].state['Name']}) - skipping")
+        return
 
     subnet = find_subnets(vpc, "public1-*")[0]
     security_group = find_security_group(vpc, "bastion-sg")

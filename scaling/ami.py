@@ -2,12 +2,14 @@
 Creates a custom AMI from the WordPress master web server (assignment step 2).
 Auto-scaled instances are launched from this image.
 
-  py -m scaling.ami
+  py -m scaling.ami              # skips if an AMI already exists
+  py -m scaling.ami --rebuild    # always creates a new one (e.g. after changing the master)
 
 Waits until the master actually serves pages before creating the image,
 so the AMI never captures a half-finished installation.
 """
 
+import argparse
 import sys
 import time
 import urllib.error
@@ -45,7 +47,23 @@ def wait_until_serving(ip, timeout=900):
     sys.exit(f"No response from {url} after {timeout} s - check the master's cloud-init log")
 
 
-def main():
+def existing_ami():
+    images = client.describe_images(Owners=["self"], Filters=[
+        {"Name": "name", "Values": [full_name("wordpress-*")]},
+        {"Name": "state", "Values": ["available", "pending"]},
+    ])["Images"]
+    return max(images, key=lambda image: image["CreationDate"]) if images else None
+
+
+def main(rebuild=False):
+    vpc = find_vpc()
+    if not rebuild:
+        image = existing_ami()
+        if image:
+            print(f"AMI {image['Name']} already exists - skipping "
+                  "(use --rebuild for a new one)")
+            return
+    master = find_master(vpc)
     vpc = find_vpc()
     master = find_master(vpc)
     wait_until_serving(master.public_ip_address)
@@ -73,4 +91,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Create the WordPress AMI")
+    parser.add_argument("--rebuild", action="store_true",
+                        help="create a new AMI even if one already exists")
+    main(rebuild=parser.parse_args().rebuild)

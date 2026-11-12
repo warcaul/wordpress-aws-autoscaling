@@ -40,11 +40,19 @@ def restrict_permissions(path):
 def main():
     # The private key can only be downloaded once, at creation, so never
     # recreate or overwrite an existing key
-    if key_exists_in_aws():
-        sys.exit(f"Key pair {config.KEY_NAME} already exists in AWS")
-    if os.path.exists(config.KEY_FILE):
-        sys.exit(f"{config.KEY_FILE} already exists - not overwriting it")
-
+    in_aws = key_exists_in_aws()
+    on_pc = os.path.exists(config.KEY_FILE)
+    if in_aws and on_pc:
+        print(f"Key pair {config.KEY_NAME} already exists - skipping")
+        return
+    if in_aws:
+        sys.exit(f"Key pair {config.KEY_NAME} exists in AWS, but {config.KEY_FILE} is missing - "
+                 "delete the key pair in the EC2 console and run again")
+    if on_pc:
+        sys.exit(f"{config.KEY_FILE} exists, but the key pair isn't in AWS - "
+                 "move or delete the file and run again")
+        
+        
     response = ec2.create_key_pair(
         KeyName=config.KEY_NAME,
         KeyType="rsa",

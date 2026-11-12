@@ -66,7 +66,9 @@ def main():
         {"Name": "instance-state-name", "Values": ["pending", "running", "stopping", "stopped"]},
     ]))
     if existing:
-        sys.exit(f"{DB_INSTANCE_NAME} already exists ({existing[0].id}, {existing[0].state['Name']})")
+        print(f"{DB_INSTANCE_NAME} already exists ({existing[0].id}, "
+              f"{existing[0].state['Name']}) - skipping")
+        return
 
     instance = ec2.create_instances(
         ImageId=latest_amazon_linux_ami(),

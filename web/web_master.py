@@ -66,7 +66,9 @@ def main():
         {"Name": "instance-state-name", "Values": ["pending", "running", "stopping", "stopped"]},
     ]))
     if existing:
-        sys.exit(f"{MASTER_NAME} already exists ({existing[0].id}, {existing[0].state['Name']})")
+        print(f"{MASTER_NAME} already exists ({existing[0].id}, "
+              f"{existing[0].state['Name']}) - skipping")
+        return
 
     db_host = database_private_ip(vpc)
     print(f"Database server at {db_host}")

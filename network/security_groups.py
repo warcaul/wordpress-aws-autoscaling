@@ -7,7 +7,6 @@ Creates the security groups for the application (assignment step 3):
   - a2-db-sg:      MySQL from the web servers, SSH from the bastion
 """
 
-import sys
 import urllib.request
 
 from aws_helpers import find_vpc, full_name
@@ -46,8 +45,9 @@ def main():
     existing = list(vpc.security_groups.filter(
         Filters=[{"Name": "group-name", "Values": [full_name("*")]}]))
     if existing:
-        sys.exit("Security groups already exist: "
-                 + ", ".join(sg.group_name for sg in existing))
+        print("Security groups already exist - skipping: "
+              + ", ".join(sg.group_name for sg in existing))
+        return
 
     my_ip = f"{my_public_ip()}/32"      # /32 = exactly this one address
     print(f"Your public IP: {my_ip}")

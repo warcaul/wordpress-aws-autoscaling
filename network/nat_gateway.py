@@ -24,7 +24,8 @@ def active_nat_gateways(vpc):
 
 def create(vpc):
     if active_nat_gateways(vpc):
-        sys.exit("A NAT gateway already exists in this VPC")
+        print("A NAT gateway already exists in this VPC - skipping")
+        return
 
     # The NAT gateway itself needs internet access, so it goes in a public subnet
     public_subnet = find_subnets(vpc, "public1-*")[0]

@@ -51,7 +51,8 @@ def main():
     existing = autoscaling.describe_auto_scaling_groups(
         AutoScalingGroupNames=[ASG_NAME])["AutoScalingGroups"]
     if existing:
-        sys.exit(f"{ASG_NAME} already exists")
+        print(f"{ASG_NAME} already exists - skipping")
+        return
     if default_version_ami() is None:
         sys.exit(f"{LT_NAME} not found - run: py -m scaling.launch_template")
     tg_arn = target_group_arn()

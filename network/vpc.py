@@ -5,8 +5,6 @@ Creates the VPC for the application (assignment step 3):
   - an internet gateway and a public route table for the public subnets
 """
 
-import sys
-
 import config
 from aws_helpers import ec2, full_name, name_tag
 
@@ -17,7 +15,8 @@ def main():
     # Don't create a second VPC if this script has already been run
     existing = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [vpc_name]}]))
     if existing:
-        sys.exit(f"{vpc_name} already exists ({existing[0].id})")
+        print(f"{vpc_name} already exists ({existing[0].id}) - skipping")
+        return
 
     # --- VPC ---
     vpc = ec2.create_vpc(CidrBlock=config.VPC_CIDR)
