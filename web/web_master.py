@@ -50,6 +50,7 @@ def build_user_data(db_host):
         "__DB_NAME__": config.DB_NAME,
         "__DB_USER__": config.DB_USER,
         "__DB_PASSWORD__": config.db_password(),
+        "__VPC_CIDR__": config.VPC_CIDR,
         "__INSTANCE_INFO_PHP__": instance_info_page,
         "__METRICS_SH__": metrics_script,
     }

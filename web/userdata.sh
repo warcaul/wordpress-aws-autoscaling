@@ -10,6 +10,7 @@ DB_HOST="__DB_HOST__"
 DB_NAME="__DB_NAME__"
 DB_USER="__DB_USER__"
 DB_PASSWORD="__DB_PASSWORD__"
+VPC_CIDR="__VPC_CIDR__"
 
 # --- Swap: a t2.nano has only 512 MB of RAM ---
 dd if=/dev/zero of=/swapfile bs=1M count=1024
@@ -96,6 +97,18 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now a2-metrics.timer
+
+# --- Log visitors' real IPs ---
+# Behind the load balancer, Apache only sees the load balancer's address; the
+# visitor's IP arrives in the X-Forwarded-For header. mod_remoteip uses that
+# header as the client IP - but only when the request comes from inside the
+# VPC (the load balancer), so outsiders can't fake it.
+cat > /etc/httpd/conf.d/remoteip.conf <<EOF
+RemoteIPHeader X-Forwarded-For
+RemoteIPInternalProxy ${VPC_CIDR}
+EOF
+# Log %a (client IP, as worked out by mod_remoteip) instead of %h (connection IP)
+sed -i 's/LogFormat "%h /LogFormat "%a /' /etc/httpd/conf/httpd.conf
 
 
 # --- Apache serves the files, so it must own them ---
