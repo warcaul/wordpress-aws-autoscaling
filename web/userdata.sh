@@ -11,6 +11,10 @@ DB_NAME="__DB_NAME__"
 DB_USER="__DB_USER__"
 DB_PASSWORD="__DB_PASSWORD__"
 VPC_CIDR="__VPC_CIDR__"
+WP_TITLE="__WP_TITLE__"
+WP_ADMIN_USER="__WP_ADMIN_USER__"
+WP_ADMIN_PASSWORD="__WP_ADMIN_PASSWORD__"
+WP_ADMIN_EMAIL="__WP_ADMIN_EMAIL__"
 
 # --- Swap: a t2.nano has only 512 MB of RAM ---
 dd if=/dev/zero of=/swapfile bs=1M count=1024
@@ -110,6 +114,31 @@ EOF
 # Log %a (client IP, as worked out by mod_remoteip) instead of %h (connection IP)
 sed -i 's/LogFormat "%h /LogFormat "%a /' /etc/httpd/conf/httpd.conf
 
+# --- WordPress setup with WP-CLI (WordPress's command-line tool) ---
+# Does what the browser setup page would do: creates the site and admin account.
+curl -so /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+chmod 755 /usr/local/bin/wp
+WP="/usr/local/bin/wp --path=/var/www/html --allow-root"
+
+# The database server boots at the same time and may still be installing,
+# so wait (up to 10 minutes) until WordPress's database user can log in
+for attempt in $(seq 1 60); do
+    if mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" "$DB_NAME" >/dev/null 2>&1; then
+        break
+    fi
+    echo "Waiting for the database ($attempt/60)..."
+    sleep 10
+done
+
+# Install only if this database doesn't already contain a WordPress site
+# (e.g. when the master is rebuilt but the database was kept)
+if $WP core is-installed; then
+    echo "WordPress is already installed in the database - skipping setup"
+else
+    $WP core install --url="http://localhost" --title="$WP_TITLE" \
+        --admin_user="$WP_ADMIN_USER" --admin_password="$WP_ADMIN_PASSWORD" \
+        --admin_email="$WP_ADMIN_EMAIL" --skip-email
+fi
 
 # --- Apache serves the files, so it must own them ---
 chown -R apache:apache /var/www/html

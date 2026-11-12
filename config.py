@@ -30,26 +30,38 @@ KEY_FILE = os.path.expanduser(f"~/.ssh/{KEY_NAME}.pem")
 # Instance type for all servers (512 MB RAM, cheapest general-purpose type)
 INSTANCE_TYPE = "t2.nano"
 
-def db_password():
-    """The database password, read from the A2_DB_PASSWORD environment
-    variable or from a local .env file (which is never committed)."""
+def secret(name):
+    """A secret read from an environment variable or from the local .env file
+    (which is never committed)."""
     env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-    if "A2_DB_PASSWORD" not in os.environ and os.path.isfile(env_file):
+    if name not in os.environ and os.path.isfile(env_file):
         with open(env_file) as f:
             for line in f:
                 key, _, value = line.strip().partition("=")
-                if key == "A2_DB_PASSWORD":
-                    os.environ["A2_DB_PASSWORD"] = value.strip().strip('"')
+                if key == name:
+                    os.environ[name] = value.strip().strip('"')
 
-    password = os.environ.get("A2_DB_PASSWORD")
-    if not password or password == "CHANGE_ME":
-        sys.exit("Set A2_DB_PASSWORD in .env (copy .env.example to .env)")
-    return password
+    value = os.environ.get(name)
+    if not value or value == "CHANGE_ME":
+        sys.exit(f"Set {name} in .env (copy .env.example to .env)")
+    return value
+
+
+def db_password():
+    return secret("A2_DB_PASSWORD")
+
+def wp_admin_password():
+    return secret("A2_WP_ADMIN_PASSWORD")
 
 
 # WordPress database: its name and the MariaDB user WordPress connects as
 DB_NAME = "wordpress"
 DB_USER = "wpuser"
+
+# WordPress site created automatically on first boot (password comes from .env)
+WP_TITLE = "DevOps Assignment 2"
+WP_ADMIN_USER = "admin"
+WP_ADMIN_EMAIL = "admin@example.com"
 
 # IAM role provided by the Learner Lab; lets instances call AWS (e.g. CloudWatch)
 # without storing credentials on them
