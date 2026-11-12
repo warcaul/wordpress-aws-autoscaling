@@ -2,6 +2,7 @@
 
 import os
 import sys
+import ipaddress
 
 # AWS region where everything is created
 REGION = "us-east-1"
@@ -16,6 +17,11 @@ AZS = ["us-east-1a", "us-east-1b", "us-east-1c"]
 VPC_CIDR = "10.0.0.0/16"
 PUBLIC_SUBNET_CIDRS = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 PRIVATE_SUBNET_CIDRS = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
+
+# The database server's fixed private IP: the 10th address of the first private
+# subnet (AWS reserves .0-.3 and the last address). Fixed, so the AMI's
+# wp-config.php stays valid when the database is recreated.
+DB_PRIVATE_IP = str(ipaddress.ip_network(PRIVATE_SUBNET_CIDRS[0])[10])
 
 # Key pair for SSH access: its name in AWS, and the private key file on this PC
 KEY_NAME = f"{PROJECT}-key"

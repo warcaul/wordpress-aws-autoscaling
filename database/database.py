@@ -9,6 +9,8 @@ Requires the NAT gateway, so the instance can download packages on first boot.
 import os
 import sys
 
+from botocore.exceptions import ClientError
+
 import config
 from aws_helpers import (check_user_data, client, ec2, find_security_group, find_subnets,
                          find_vpc, full_name, latest_amazon_linux_ami, tag_spec)
@@ -70,17 +72,25 @@ def main():
               f"{existing[0].state['Name']}) - skipping")
         return
 
-    instance = ec2.create_instances(
-        ImageId=latest_amazon_linux_ami(),
-        InstanceType=config.INSTANCE_TYPE,
-        KeyName=config.KEY_NAME,
-        SubnetId=find_subnets(vpc, "private1-*")[0].id,   # private: no public IP
-        SecurityGroupIds=[find_security_group(vpc, "db-sg").id],
-        UserData=build_user_data(),
-        MinCount=1,
-        MaxCount=1,
-        TagSpecifications=tag_spec("instance", "db"),
-    )[0]
+    try:
+        instance = ec2.create_instances(
+            ImageId=latest_amazon_linux_ami(),
+            InstanceType=config.INSTANCE_TYPE,
+            KeyName=config.KEY_NAME,
+            SubnetId=find_subnets(vpc, "private1-*")[0].id,   # private: no public IP
+            PrivateIpAddress=config.DB_PRIVATE_IP,              # always the same address
+            SecurityGroupIds=[find_security_group(vpc, "db-sg").id],
+            UserData=build_user_data(),
+            MinCount=1,
+            MaxCount=1,
+            TagSpecifications=tag_spec("instance", "db"),
+        )[0]
+    except ClientError as e:
+        # A just-terminated database can hold on to the address for a minute
+        if e.response["Error"]["Code"] == "InvalidIPAddress.InUse":
+            sys.exit(f"{config.DB_PRIVATE_IP} is still in use - wait a minute and run again")
+        raise
+    
     print(f"Launched {DB_INSTANCE_NAME} ({instance.id}), waiting for it to run...")
 
     instance.wait_until_running()
