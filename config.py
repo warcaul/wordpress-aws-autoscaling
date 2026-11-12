@@ -50,18 +50,23 @@ def secret(name):
 def db_password():
     return secret("A2_DB_PASSWORD")
 
+def wp_admin_user():
+    return secret("A2_WP_ADMIN_USER")
+
 def wp_admin_password():
     return secret("A2_WP_ADMIN_PASSWORD")
 
+def wp_admin_email():
+    return secret("A2_WP_ADMIN_EMAIL")
 
 # WordPress database: its name and the MariaDB user WordPress connects as
 DB_NAME = "wordpress"
 DB_USER = "wpuser"
 
-# WordPress site created automatically on first boot (password comes from .env)
+# WordPress site created automatically on first boot. The admin login
+# (username, password, email) comes from .env, so it's never published.
 WP_TITLE = "DevOps Assignment 2"
-WP_ADMIN_USER = "admin"
-WP_ADMIN_EMAIL = "admin@example.com"
+
 
 # IAM role provided by the Learner Lab; lets instances call AWS (e.g. CloudWatch)
 # without storing credentials on them

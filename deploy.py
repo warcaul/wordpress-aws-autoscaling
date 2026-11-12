@@ -11,7 +11,6 @@ after fixing a problem that stopped it halfway. Remove everything with:
 
 import sys
 import time
-import config
 
 from botocore.exceptions import ClientError, NoCredentialsError
 
@@ -75,8 +74,7 @@ def main():
     print(f"\n=== Deploy complete in {minutes_and_seconds(time.time() - started)} ===")
     print(f"Site:          http://{dns_name}")
     print(f"Instance info: http://{dns_name}/instance-info.php")
-    print(f"WordPress admin: http://{dns_name}/wp-admin (user '{config.WP_ADMIN_USER}', "
-          "password from .env)")
+    print(f"WordPress admin: http://{dns_name}/wp-admin (login details in .env)")
     print("The NAT gateway is only needed while servers install packages; to save credit:")
     print("  py -m network.nat_gateway delete")
 

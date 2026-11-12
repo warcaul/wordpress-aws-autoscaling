@@ -52,9 +52,9 @@ def build_user_data(db_host):
         "__DB_PASSWORD__": config.db_password(),
         "__VPC_CIDR__": config.VPC_CIDR,
         "__WP_TITLE__": config.WP_TITLE,
-        "__WP_ADMIN_USER__": config.WP_ADMIN_USER,
+        "__WP_ADMIN_USER__": config.wp_admin_user(),
         "__WP_ADMIN_PASSWORD__": config.wp_admin_password(),
-        "__WP_ADMIN_EMAIL__": config.WP_ADMIN_EMAIL,
+        "__WP_ADMIN_EMAIL__": config.wp_admin_email(),
         "__INSTANCE_INFO_PHP__": instance_info_page,
         "__METRICS_SH__": metrics_script,
     }
