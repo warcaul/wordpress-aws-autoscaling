@@ -1,4 +1,9 @@
 """
+WARNING: sends thousands of requests per minute from one IP address, which
+AWS Academy can flag as an attack and close the Learner Lab account for.
+Use testing.cpu_load to trigger scaling instead - it loads the servers' CPUs
+from inside, with no outside traffic.
+
 Generates sustained web traffic to trigger the CPU scaling policies
 (demonstrates assignment step 5), and shows the scaling as it happens.
 
@@ -69,6 +74,11 @@ def main():
     parser.add_argument("--users", type=int, default=20, help="parallel simulated users")
     parser.add_argument("--minutes", type=float, default=10)
     args = parser.parse_args()
+    
+    print("WARNING: heavy outside traffic can get your AWS Academy account flagged.")
+    print("Use 'py -m testing.cpu_load' instead unless you really need web traffic.")
+    if input("Type 'yes' to send the traffic anyway: ").strip().lower() != "yes":
+        sys.exit("Cancelled - no traffic sent")
 
     url = f"http://{load_balancer_dns()}/"
     print(f"{args.users} users requesting {url} for {args.minutes:g} minutes "
