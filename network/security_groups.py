@@ -1,7 +1,8 @@
 """
 Creates the security groups for the application (assignment step 3):
   - a2-bastion-sg: SSH from my IP only (the single entry point for admin access)
-  - a2-lb-sg:      HTTP from anywhere (the public entry point for users)
+  - a2-lb-sg:      HTTP and HTTPS from anywhere (the public entry point for users;
+                   HTTP only redirects to HTTPS)
   - a2-web-sg:     HTTP from the load balancer (and my IP, for testing),
                    SSH from the bastion
   - a2-db-sg:      MySQL from the web servers, SSH from the bastion
@@ -54,7 +55,7 @@ def main():
 
     # Create all groups first, so rules can refer to each other
     bastion = create_group(vpc, "bastion-sg", "Bastion: SSH from my IP")
-    lb = create_group(vpc, "lb-sg", "Load balancer: HTTP from anywhere")
+    lb = create_group(vpc, "lb-sg", "Load balancer: HTTP and HTTPS from anywhere")
     web = create_group(vpc, "web-sg", "Web servers: HTTP from LB, SSH from bastion")
     db = create_group(vpc, "db-sg", "Database: MySQL from web servers, SSH from bastion")
 
@@ -63,6 +64,7 @@ def main():
     ])
     lb.authorize_ingress(IpPermissions=[
         allow_from_ip(80, "0.0.0.0/0", "HTTP from anywhere"),
+        allow_from_ip(443, "0.0.0.0/0", "HTTPS from anywhere"),
     ])
     web.authorize_ingress(IpPermissions=[
         allow_from_group(80, lb, "HTTP from load balancer"),
