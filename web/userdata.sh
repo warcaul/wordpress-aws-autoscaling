@@ -51,11 +51,20 @@ ${SALTS}
 
 \$table_prefix = 'wp_';
 
+// Behind the load balancer, visitors use HTTPS but this server receives plain
+// HTTP; the load balancer reports the original protocol in X-Forwarded-Proto.
+// Marking the request as HTTPS makes WordPress build https:// links and
+// secure cookies instead of redirecting back to http://.
+if (isset(\$_SERVER['HTTP_X_FORWARDED_PROTO']) && \$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+    \$_SERVER['HTTPS'] = 'on';
+}
+\$scheme = (isset(\$_SERVER['HTTPS']) && \$_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+
 // Build the site address from the request, so the same files work when the
-// site is reached by this instance's IP now and by the load balancer later
+// site is reached by this instance's IP now and through the load balancer later
 \$host = isset(\$_SERVER['HTTP_HOST']) ? \$_SERVER['HTTP_HOST'] : 'localhost';
-define('WP_HOME', 'http://' . \$host);
-define('WP_SITEURL', 'http://' . \$host);
+define('WP_HOME', \$scheme . '://' . \$host);
+define('WP_SITEURL', \$scheme . '://' . \$host);
 
 define('WP_DEBUG', false);
 if (!defined('ABSPATH')) {
