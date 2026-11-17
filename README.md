@@ -9,8 +9,9 @@ DevOps Assignment 2.
 ## Architecture
 
 - **VPC** `10.0.0.0/16` across three availability zones, each with a public and a private subnet
-- **Application load balancer** in the public subnets, forwarding HTTP to the web servers
-- **Auto scaling group** of WordPress web servers (2 to 4 `t2.nano` instances) in the public
+- **Application load balancer** in the public subnets: HTTPS on port 443 with a self-signed
+  certificate in AWS Certificate Manager, HTTP on port 80 redirecting to HTTPS; forwards plain
+  HTTP to the web servers inside the VPC- **Auto scaling group** of WordPress web servers (2 to 4 `t2.nano` instances) in the public
   subnets, launched from a custom AMI
 - **MariaDB database** in a private subnet, reachable only from the web servers
 - **Bastion host**, the only way in for SSH; web servers and database accept SSH only from it
@@ -30,15 +31,15 @@ network/               key pair, VPC, security groups, NAT gateway
 bastion/               bastion host
 database/              MariaDB server and its first-boot script
 web/                   WordPress master, first-boot script, instance info page, metrics script
-scaling/               AMI, load balancer, launch template, auto scaling group, scaling policies
+scaling/               AMI, load balancer, launch template, auto scaling group, scaling policies, HTTPS listener
 testing/               test traffic, server log check, CPU load
 monitoring/            CloudWatch dashboard
 ```
 
 ## Requirements
 
-- Python 3 with boto3: `py -m pip install boto3`
-- AWS credentials in `~/.aws/credentials` (on Windows `C:\Users\<you>\.aws\credentials`).
+- Python 3 with boto3 and cryptography: `py -m pip install boto3 cryptography`
+  (cryptography creates the load balancer's self-signed HTTPS certificate)- AWS credentials in `~/.aws/credentials` (on Windows `C:\Users\<you>\.aws\credentials`).
   In the AWS Academy Learner Lab, copy them from **AWS Details → AWS CLI**; they change
   every lab session.
 - OpenSSH (`ssh`), included with Windows 10/11, Linux and macOS
@@ -67,7 +68,8 @@ py deploy.py
 ```
 
 Takes about 15–30 minutes. Steps that already exist are skipped, so it can be run again
-after fixing a problem. At the end it prints the site address. Optionally:
+after fixing a problem. At the end it prints the site address (`https://...`); browsers
+warn about the certificate because it is self-signed. Optionally:
 
 ```
 py -m monitoring.dashboard
