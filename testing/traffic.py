@@ -12,6 +12,7 @@ can be found afterwards in the servers' own logs (testing.server_logs).
 
 import argparse
 import re
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -22,6 +23,12 @@ from botocore.exceptions import ClientError
 
 from aws_helpers import elb, full_name
 
+# The load balancer's certificate is self-signed, so no trusted authority can
+# vouch for it and normal verification would reject it. These test requests
+# go to our own load balancer, so skip the check; traffic is still encrypted.
+SELF_SIGNED = ssl.create_default_context()
+SELF_SIGNED.check_hostname = False
+SELF_SIGNED.verify_mode = ssl.CERT_NONE
 
 def load_balancer_dns():
     try:
@@ -46,14 +53,14 @@ def main():
 
     dns_name = load_balancer_dns()
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    print(f"Sending {args.requests} requests to http://{dns_name} (run ID {run_id})...")
+    print(f"Sending {args.requests} requests to https://{dns_name} (run ID {run_id})...")
 
     served_by = Counter()
     failed = 0
     for n in range(1, args.requests + 1):
-        url = f"http://{dns_name}/instance-info.php?run={run_id}&n={n}"
+        url = f"https://{dns_name}/instance-info.php?run={run_id}&n={n}"
         try:
-            with urllib.request.urlopen(url, timeout=10) as response:
+            with urllib.request.urlopen(url, timeout=10, context=SELF_SIGNED) as response:
                 html = response.read().decode()
             served_by[(table_value(html, "Instance ID"),
                        table_value(html, "Availability zone"))] += 1

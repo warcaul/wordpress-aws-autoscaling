@@ -26,6 +26,7 @@ import urllib.request
 from botocore.exceptions import ClientError
 
 from aws_helpers import autoscaling, cloudwatch, elb, full_name
+from testing.traffic import SELF_SIGNED
 
 stop = threading.Event()      # tells all user threads to finish
 lock = threading.Lock()       # protects the counters, shared by all threads
@@ -46,7 +47,7 @@ def simulated_user(url):
     """One 'user': requests the page again and again until told to stop."""
     while not stop.is_set():
         try:
-            with urllib.request.urlopen(url, timeout=30) as response:
+            with urllib.request.urlopen(url, timeout=30, context=SELF_SIGNED) as response:
                 response.read()
             outcome = "ok"
         except (urllib.error.URLError, OSError):
@@ -80,7 +81,7 @@ def main():
     if input("Type 'yes' to send the traffic anyway: ").strip().lower() != "yes":
         sys.exit("Cancelled - no traffic sent")
 
-    url = f"http://{load_balancer_dns()}/"
+    url = f"https://{load_balancer_dns()}/"
     print(f"{args.users} users requesting {url} for {args.minutes:g} minutes "
           f"(Ctrl+C to stop early)")
     print(f"Before: {scaling_status()}\n")

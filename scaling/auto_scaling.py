@@ -84,8 +84,8 @@ def main():
     wait_for_healthy_targets(tg_arn, config.ASG_DESIRED_CAPACITY)
 
     dns_name = elb.describe_load_balancers(Names=[full_name("lb")])["LoadBalancers"][0]["DNSName"]
-    print(f"\nSite:          http://{dns_name}")
-    print(f"Instance info: http://{dns_name}/instance-info.php (refresh to see it change)")
+    print(f"\nSite:          https://{dns_name}")
+    print(f"Instance info: https://{dns_name}/instance-info.php (refresh to see it change)")
 
 
 if __name__ == "__main__":
