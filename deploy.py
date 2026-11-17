@@ -27,6 +27,7 @@ import scaling.load_balancer
 import scaling.scaling_policies
 import web.web_master
 from aws_helpers import elb, find_vpc, full_name
+import scaling.https_listener
 
 # (step name, function that performs it), in dependency order
 STEPS = [
@@ -39,6 +40,7 @@ STEPS = [
     ("WordPress master",  web.web_master.main),
     ("Custom AMI",        scaling.ami.main),
     ("Load balancer",     scaling.load_balancer.main),
+    ("HTTPS listener",    scaling.https_listener.main),
     ("Launch template",   scaling.launch_template.main),
     ("Auto scaling group", scaling.auto_scaling.main),
     ("Scaling policies",  scaling.scaling_policies.main),
@@ -72,9 +74,9 @@ def main():
 
     dns_name = elb.describe_load_balancers(Names=[full_name("lb")])["LoadBalancers"][0]["DNSName"]
     print(f"\n=== Deploy complete in {minutes_and_seconds(time.time() - started)} ===")
-    print(f"Site:          http://{dns_name}")
-    print(f"Instance info: http://{dns_name}/instance-info.php")
-    print(f"WordPress admin: http://{dns_name}/wp-admin (login details in .env)")
+    print(f"Site:          https://{dns_name}  (self-signed certificate: expect a browser warning)")
+    print(f"Instance info: https://{dns_name}/instance-info.php")
+    print(f"WordPress admin: https://{dns_name}/wp-admin (login details in .env)")
     print("The NAT gateway is only needed while servers install packages; to save credit:")
     print("  py -m network.nat_gateway delete")
 
