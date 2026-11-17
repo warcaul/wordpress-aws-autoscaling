@@ -1,8 +1,8 @@
 """
 Deletes everything this project created, in an order AWS accepts:
 alarms and auto scaling group -> AMIs -> launch template -> load balancer and target
-group -> instances -> NAT gateway -> security groups -> subnets, route tables,
-internet gateway -> VPC.
+group -> HTTPS certificate -> instances -> NAT gateway -> security groups ->
+subnets, route tables, internet gateway -> VPC.
 
   py teardown.py
 
@@ -13,12 +13,15 @@ Safe to run again if interrupted: anything already gone is skipped.
 import sys
 import time
 
+import boto3
 from botocore.exceptions import ClientError
 
+import config
 from aws_helpers import autoscaling, client, ec2, elb, full_name, cloudwatch
 from network.nat_gateway import active_nat_gateways
 from network.nat_gateway import delete as delete_nat_gateway
 
+acm = boto3.client("acm", region_name=config.REGION)
 
 def find_vpc_or_none():
     vpcs = list(ec2.vpcs.filter(Filters=[{"Name": "tag:Name", "Values": [full_name("vpc")]}]))
@@ -76,6 +79,24 @@ def find_target_group():
             return None
         raise
 
+def find_certificates():
+    """Our self-signed certificates in ACM (tagged a2-cert). Like AMIs, they
+    live outside the VPC; ACM only lists tags per certificate, so check each."""
+    arns = []
+    for summary in acm.list_certificates()["CertificateSummaryList"]:
+        arn = summary["CertificateArn"]
+        tags = acm.list_tags_for_certificate(CertificateArn=arn)["Tags"]
+        if {"Key": "Name", "Value": full_name("cert")} in tags:
+            arns.append(arn)
+    return arns
+
+
+def delete_certificates(arns):
+    """A certificate can't be deleted while a listener uses it; right after
+    the load balancer is deleted ACM may still report it in use, so retry."""
+    for arn in arns:
+        delete_with_retry(lambda: acm.delete_certificate(CertificateArn=arn),
+                          f"certificate {arn.split('/')[-1]}")
 
 def leftover_elastic_ips():
     """The NAT gateway's Elastic IP, if a previous teardown stopped before releasing it."""
@@ -105,7 +126,9 @@ def main():
     auto_scaling_group = find_auto_scaling_group()
     amis = project_amis()
     launch_template = find_launch_template()
-    if not vpc and not alarms and not auto_scaling_group and not amis and not launch_template:
+    certificates = find_certificates()
+    if (not vpc and not alarms and not auto_scaling_group and not amis
+            and not launch_template and not certificates):
         sys.exit("Nothing to delete")
 
     # --- Find everything first, so you can review it before anything is deleted ---
@@ -121,8 +144,12 @@ def main():
     if launch_template:
         print(f"  launch template {full_name('lt')} "
         f"({launch_template['LatestVersionNumber']} version(s))")
+        
+    if certificates:
+        print(f"  {len(certificates)} HTTPS certificate(s) in ACM")
 
     if vpc:
+        delete_certificates(certificates)      # no load balancer left to use them
         load_balancer = find_load_balancer()
         target_group = find_target_group()
 # Instances launched by auto scaling are removed with their group,
@@ -202,6 +229,8 @@ def main():
         delete_with_retry(
             lambda: elb.delete_target_group(TargetGroupArn=target_group["TargetGroupArn"]),
             full_name("tg"))
+        # The certificate only once its HTTPS listener is gone with the load balancer*
+        delete_certificates(certificates)
 
     # --- 6. Instances: everything else is in use while they exist ---
     if instances:
