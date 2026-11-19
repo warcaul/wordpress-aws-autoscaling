@@ -149,7 +149,6 @@ def main():
         print(f"  {len(certificates)} HTTPS certificate(s) in ACM")
 
     if vpc:
-        delete_certificates(certificates)      # no load balancer left to use them
         load_balancer = find_load_balancer()
         target_group = find_target_group()
 # Instances launched by auto scaling are removed with their group,
@@ -215,6 +214,7 @@ def main():
         print(f"Deleted launch template {full_name('lt')}")
 
     if not vpc:
+        delete_certificates(certificates)      # no load balancer left to use them
         print("Teardown complete. Key pair kept.")
         return
 
@@ -229,8 +229,8 @@ def main():
         delete_with_retry(
             lambda: elb.delete_target_group(TargetGroupArn=target_group["TargetGroupArn"]),
             full_name("tg"))
-        # The certificate only once its HTTPS listener is gone with the load balancer*
-        delete_certificates(certificates)
+    # The certificate only once its HTTPS listener is gone with the load balancer*
+    delete_certificates(certificates)
 
     # --- 6. Instances: everything else is in use while they exist ---
     if instances:
